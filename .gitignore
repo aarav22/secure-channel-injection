@@ -1,2 +1,4 @@
-env/
+env/*
 tlslite-ng/
+
+!env/Lib/site-packages/tlslite
