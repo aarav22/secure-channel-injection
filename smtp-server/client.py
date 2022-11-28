@@ -7,16 +7,9 @@ import ssl
 
 # MAILClient class represents a client program for the server application
 class MAILClient(Client):
-    def __init__(self, hostname, port, email, password, is_registered): 
+    def __init__(self, hostname, port, email, password, is_registered, settings=HandshakeSettings()): 
         super().__init__(hostname,port)
-        settings = HandshakeSettings()
-        settings.cipherNames = ["aes128"]
-        settings.cipherNames = ["aes128"]
-        settings.macNames = ["sha256"]
-        settings.minVersion = (3, 3)
-        settings.maxVersion = (3, 3)
-        settings.useEncryptThenMAC = False
-        self.starttls()
+        self.starttls(settings=settings)
         self.authenticated = False
         self.user = self.sign_user(email, password, is_registered)
         self.inbox = ''
@@ -83,7 +76,21 @@ class MAILClient(Client):
         else:
             print('not authenticated')
 
-client = MAILClient('127.0.0.127', 6944, 'test1@project.com', '12345', True)
+
+settings = HandshakeSettings()
+settings.cipherNames = ["aes128"]
+settings.macNames = ["sha256"]
+settings.minVersion = (3, 3)
+settings.maxVersion = (3, 3)
+settings.useEncryptThenMAC = False
+
+client = MAILClient('127.0.0.127', 6944, 'test1@project.com', '12345', True, settings=settings)
+# calculate 2p-HMAC
+# 1. Extract HMAC key from session
+# 2. Extract IV from session
+
+# key_hmac = client.sock.session.macContext
+# print(key_hmac)
 sender = "Private Person <from@example.com>"
 receiver = "A Test User <test2@project.com>"
 message = f"""\
