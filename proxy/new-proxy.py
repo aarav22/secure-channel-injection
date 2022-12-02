@@ -1,9 +1,11 @@
 import socket, os
 from threading import Thread
+
 import pickle
 import secrets
 import customSHA256
 import random, string
+from tlslite.utils import python_aes
 
 host_IP = '127.0.0.127'
 host_port = 6944
@@ -17,7 +19,7 @@ class socketListener(Thread):
 
     def rcv_from_client_fwd_to_server(self):
         val = False
-        self.c_socket.settimeout(4.0)   
+        self.c_socket.settimeout(2.0)   
         try:
             c_msg = self.c_socket.recv(1024)
             while c_msg:
@@ -26,6 +28,7 @@ class socketListener(Thread):
                     # if there is a '.' in the data
                     if c_msg.find(b'.') != -1:
                         deserialized_c_msg = pickle.loads(c_msg)
+                        print('START OF MESSAGE')
                         print(f'client says Desrialized Msg is {deserialized_c_msg}')
 
                         m_p2 = deserialized_c_msg['m_p2']
@@ -51,7 +54,47 @@ class socketListener(Thread):
                         self.c_socket.send(serialized_send_material)
                         
                         # receive the next message from the client
+
+                        # this is enc_data (IV (tls one, not AES) + m_p), 
+                        # chaining_block, and key (AES key)
+                        #  TODO: don't have the key
+                        c_msg = self.c_socket.recv(1024) 
+
+                        deserialized_c_msg = pickle.loads(c_msg)
+                        print(f'client says Desrialized Msg is {deserialized_c_msg}')
+                        key = deserialized_c_msg['aes_key']
+                        IV = deserialized_c_msg['aes_chainaing']
+                        enc_data = deserialized_c_msg['enc_data']
+                        MODE = 2 # CBC
+                        python_aes_obj = python_aes.Python_AES(key, MODE, IV)
+                        new_enc_data = python_aes_obj.encrypt(m_star)
+                        new_chain_block = python_aes_obj.IV
+
+                        # send the new_chain_block
+                        send_material = {'new_chain_block': new_chain_block}
+                        serialized_send_material = pickle.dumps(send_material)
+                        self.c_socket.send(serialized_send_material)
+
+                        # recv the next message from the client
                         c_msg = self.c_socket.recv(1024)
+                        print(f'rcvd enc m_s={c_msg}')
+                        deserialized_c_msg = pickle.loads(c_msg)
+                        newer_enc_data = deserialized_c_msg['enc_data']
+                        final_enc_data = enc_data + new_enc_data + newer_enc_data
+                        
+                        print(f'final_enc_data={final_enc_data}')
+                        # intercept the mail and send it to the server
+                        c_msg = self.c_socket.recv(1024)
+                        print(f'rcvd mail data: {c_msg}')
+
+                        # replace eveything after '\x17\x03\x03\x00' with final_enc_data
+                        # and send it to the server
+                        new_mail = b'\x17\x03\x03\x00\xc0' + final_enc_data
+                        c_msg = new_mail
+
+                        print(f'new mail data: {c_msg}')
+                        # self.s_socket.send(c_msg)
+                        raise Exception('stop')
                     else:
                         raise Exception('No full stop found')
 
@@ -65,7 +108,6 @@ class socketListener(Thread):
                         print(f'client says: some undecodable message')
                     val = True
                     c_msg = self.c_socket.recv(1024)
-
         except: # timeout
             c_msg = None
 
@@ -73,7 +115,7 @@ class socketListener(Thread):
         return val
         
     def rcv_from_server_fwd_to_client(self):
-        self.s_socket.settimeout(3.0)
+        self.s_socket.settimeout(2.0)
         val = False
         try:
             s_msg = self.s_socket.recv(1024)
