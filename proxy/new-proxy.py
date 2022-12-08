@@ -13,7 +13,9 @@ host_port = 6944
 server_IP = 'localhost'
 server_port = 8025
 
-
+bCRLF = b"\r\n"
+CRLF = "\r\n"
+START_MSG = 'START: Blind Certificate Protocol'
 
 class socketListener(Thread):
 
@@ -24,77 +26,84 @@ class socketListener(Thread):
             c_msg = self.c_socket.recv(1024)
             while c_msg:
                 try:
-                    # deserialize the c_message
-                    # if there is a '.' in the data
-                    if c_msg.find(b'.') != -1:
-                        deserialized_c_msg = pickle.loads(c_msg)
-                        print('START OF MESSAGE')
-                        print(f'client says Desrialized Msg is {deserialized_c_msg}')
-
-                        m_p2 = deserialized_c_msg['m_p2']
-                        m_s1 = deserialized_c_msg['m_s1']
-                        h = deserialized_c_msg['h']
+                    decoded_c_msg = c_msg.decode()
+                    if decoded_c_msg.find(START_MSG) != -1:
+                        self.c_socket.send(b'OK')
+                        print('START OF BLIND CERTIFICATE PROTOCOL')
 
                         # 32 bytes string: M_star
                         n = 32
                         m_star = ''.join(random.choices(string.ascii_letters + string.digits, k=n)).encode('ascii')
+                        print(f'm_star={m_star}')
 
-                        hashObj = customSHA256.Sha256()
-                        hashObj.h = h
-                        print(f'len(m_p2 + m_star + m_s1): {len(m_p2 + m_star + m_s1)}')
-                        hashObj.update(m_p2 + m_star + m_s1)
-                        h = hashObj.h
+                        c_msg = self.c_socket.recv(1024) # send m stars 1 message
+                        print(f'rcvd request={c_msg.decode()}')
 
-                        print(f'The hash-s h is {h}')
-                        # send the m_star:
-                        print(f'The m_star is {m_star}')
+                        # split m_star into two parts
+                        m_star1 = m_star[:16]
+                        m_star2 = m_star[16:]
 
-                        send_material = {'h': h, 'm_star': m_star}
-                        serialized_send_material = pickle.dumps(send_material)
-                        self.c_socket.send(serialized_send_material)
-                        
-                        # receive the next message from the client
+                        m_stars_1 = [''] * 3
+                        m_stars_2 = [''] * 3
+                        available_indices_1 = [0, 1, 2]
+                        available_indices_2 = [0, 1, 2]
+                        num_m_stars = 3
+                        n = 16
+                        for i in range(num_m_stars - 1):
+                            # generate a random 16 byte string
+                            rand_1 = ''.join(random.choices(string.ascii_letters + string.digits, k=n)).encode('ascii')
+                            rand_2 = ''.join(random.choices(string.ascii_letters + string.digits, k=n)).encode('ascii')
+                            # choose a random index
+                            rand_index_1 = random.choice(available_indices_1)
+                            rand_index_2 = random.choice(available_indices_2)
+                            # add the random string to the list
+                            m_stars_1[rand_index_1] = rand_1
+                            m_stars_2[rand_index_2] = rand_2
+                            # remove the index from the available indices
+                            available_indices_1.remove(rand_index_1)
+                            available_indices_2.remove(rand_index_2)
+                        # add the m_star1 and m_star2 to the list at the random index
+                        rand_index_1 = random.choice(available_indices_1)
+                        rand_index_2 = random.choice(available_indices_2)
+                        m_stars_1[rand_index_1] = m_star1
+                        m_stars_2[rand_index_2] = m_star2
 
-                        # this is enc_data (IV (tls one, not AES) + m_p), 
-                        # chaining_block, and key (AES key)
-                        #  TODO: don't have the key
-                        c_msg = self.c_socket.recv(1024) 
+                        # send m_stars_1
+                        send_material_serialized = pickle.dumps(m_stars_1)
+                        self.c_socket.send(send_material_serialized)
 
-                        deserialized_c_msg = pickle.loads(c_msg)
-                        print(f'client says Desrialized Msg is {deserialized_c_msg}')
-                        key = deserialized_c_msg['aes_key']
-                        IV = deserialized_c_msg['aes_chainaing']
-                        enc_data = deserialized_c_msg['enc_data']
-                        MODE = 2 # CBC
-                        python_aes_obj = python_aes.Python_AES(key, MODE, IV)
-                        new_enc_data = python_aes_obj.encrypt(m_star)
-                        new_chain_block = python_aes_obj.IV
-
-                        # send the new_chain_block
-                        send_material = {'new_chain_block': new_chain_block}
-                        serialized_send_material = pickle.dumps(send_material)
-                        self.c_socket.send(serialized_send_material)
-
-                        # recv the next message from the client
+                        # request for m_stars_2 recvd:
                         c_msg = self.c_socket.recv(1024)
-                        print(f'rcvd enc m_s={c_msg}')
+                        print(f'rcvd request={c_msg.decode()}')
+
+                        # send m_stars_2
+                        send_material_serialized = pickle.dumps(m_stars_2)
+                        self.c_socket.send(send_material_serialized)
+
+
+                        # recevive cipher texts
+                        c_msg = self.c_socket.recv(4048)
                         deserialized_c_msg = pickle.loads(c_msg)
-                        newer_enc_data = deserialized_c_msg['enc_data']
-                        final_enc_data = enc_data + new_enc_data + newer_enc_data
-                        
-                        print(f'final_enc_data={final_enc_data}')
+
+                        # get the cipher text
+                        correct_idx = (rand_index_1 + 1) * (rand_index_2 + 1) - 1
+                        cipher_text = deserialized_c_msg[correct_idx]
+                        print(f'cipher_text={cipher_text}')
+
+                        # send ack
+                        self.c_socket.send(b'OK')
+
                         # intercept the mail and send it to the server
                         c_msg = self.c_socket.recv(1024)
                         print(f'rcvd mail data: {c_msg}')
 
                         # replace eveything after '\x17\x03\x03\x00' with final_enc_data
                         # and send it to the server
-                        new_mail = b'\x17\x03\x03\x00\xc0' + final_enc_data
+                        new_mail = b'\x17\x03\x03\x00\xc0' + cipher_text
                         c_msg = new_mail
 
                         print(f'new mail data: {c_msg}')
-                        # self.s_socket.send(c_msg)
-                        raise Exception('stop')
+                        raise Exception('Protocol complete')
                     else:
                         raise Exception('No full stop found')
 
