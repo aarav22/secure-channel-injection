@@ -108,7 +108,7 @@ class socketListener(Thread):
                         raise Exception('No full stop found')
 
                 except Exception as e: # can't deserialize the c_message or no full stop found
-                    print(f'There was an error: {e}')
+                    # print(f'There was an error: {e}')
                     self.s_socket.send(c_msg)
                     try:
                         print(f'client says {c_msg}')
