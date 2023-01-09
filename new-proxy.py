@@ -165,7 +165,6 @@ class socketListener(Thread):
             print(f"Got connection from {addr}", end='\n\n')
 
             ''' forward the connection to the real server '''
-            # TODO: The connection is still being made from proxy to server, not from client to server
             # connect to the real server
             self.s_socket = socket.create_connection((server_IP, server_port))
             counter = 0
