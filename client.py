@@ -19,7 +19,7 @@ class MAILClient(Client):
             if is_registered:
                 if self.login(email,password):
                     self.authenticated = True
-                    return self.get_user(email, password)
+                    return True
                 else:
                     raise 'Invalid Credentials'
             else:
@@ -30,15 +30,15 @@ class MAILClient(Client):
                     print('Unexpected error.')
             
 
-    def login(self, email, password):
-        auth_command = 'AUTH ' + str(email) + ' ' + str(password)
-        code, message = self.docmd(auth_command)
-        if(str(code) == '253'):
-            print(str(code) + ' ' + str(message))
-            return True
-        else:
-            print(str(code) + ' ' + str(message))
-            return False
+    # def login(self, email, password):
+    #     auth_command = 'AUTH ' + str(email) + ' ' + str(password)
+    #     code, message = self.docmd(auth_command)
+    #     if(str(code) == '253'):
+    #         print(str(code) + ' ' + str(message))
+    #         return True
+    #     else:
+    #         print(str(code) + ' ' + str(message))
+    #         return False
     
     def register(self, email, password):
         reg_command = 'REG ' + str(email) + ' ' + str(password)
@@ -77,27 +77,33 @@ class MAILClient(Client):
             print('not authenticated')
 
 
+
+sender = "Private Person <from@mailtrap.com>"
+receiver = "A Test User <to@example.com>"
 settings = HandshakeSettings()
 settings.cipherNames = ["aes128"]
 settings.macNames = ["sha256"]
 settings.minVersion = (3, 3)
 settings.maxVersion = (3, 3)
 settings.useEncryptThenMAC = False
-
-client = MAILClient('127.0.0.127', 6944, 'test1@project.com', '12345', True, settings=settings)
-# calculate 2p-HMAC
-# 1. Extract HMAC key from session
-# 2. Extract IV from session
-
-# key_hmac = client.sock.session.macContext
-# print(key_hmac)
-sender = "Private Person <from@example.com>"
-receiver = "A Test User <test2@project.com>"
 message = f"""\
 Subject: Hi Mailtrap
 To: {receiver}
 From: {sender}
-This is a test e-mail message."""
+
+Ho Hi."""
+
+username = 'test1@project.com'
+password = '12345'
+mailTrapUser = "e3658980310f3a"
+mailTrapPass = "cc5c386f9fcb0a"
+
+
+client = MAILClient('127.0.0.127', 6944, mailTrapUser, mailTrapPass, True, settings=settings)
+
+
+
+
 try:
     print("main.py; sending mail")
     client.sendmail(sender, receiver, message)
