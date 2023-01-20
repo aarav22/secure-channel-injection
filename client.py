@@ -9,6 +9,7 @@ import ssl
 class MAILClient(Client):
     def __init__(self, hostname, port, email, password, is_registered, settings=HandshakeSettings()): 
         super().__init__(hostname,port)
+        self.ehlo()
         self.starttls(settings=settings)
         self.authenticated = False
         self.user = self.sign_user(email, password, is_registered)
@@ -78,8 +79,8 @@ class MAILClient(Client):
 
 
 
-sender = "Private Person <from@mailtrap.com>"
-receiver = "A Test User <to@example.com>"
+sender = "Private Person <blindprotocol@outlook.com>"
+receiver = "A Test User <rob@gmail.com>"
 settings = HandshakeSettings()
 settings.cipherNames = ["aes128"]
 settings.macNames = ["sha256"]
@@ -97,9 +98,11 @@ username = 'test1@project.com'
 password = '12345'
 mailTrapUser = "e3658980310f3a"
 mailTrapPass = "cc5c386f9fcb0a"
+outlookUser = "blindprotocol@outlook.com"
+outlookPass = "tm2gKG8dFXgAGh5"
 
 
-client = MAILClient('127.0.0.127', 6944, mailTrapUser, mailTrapPass, True, settings=settings)
+client = MAILClient('127.0.0.127', 6944, outlookUser, outlookPass, True, settings=settings)
 
 
 

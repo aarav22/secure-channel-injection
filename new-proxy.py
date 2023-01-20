@@ -13,6 +13,9 @@ host_port = 6944
 mailtrapIP = "smtp.mailtrap.io"
 mailtrapPort = 2525
 
+outlookIP = "smtp-mail.outlook.com"
+outlookPort = 587
+
 server_IP = 'localhost'
 server_port = 8025
 
@@ -24,7 +27,7 @@ class socketListener(Thread):
 
     def rcv_from_client_fwd_to_server(self):
         val = False
-        self.c_socket.settimeout(2.0)   
+        self.c_socket.settimeout(1.0)   
         try:
             c_msg = self.c_socket.recv(1024)
             while c_msg:
@@ -91,21 +94,21 @@ class socketListener(Thread):
                         correct_idx = (rand_index_1 + 1) * (rand_index_2 + 1) - 1
                         print(f'm_star1={m_star1}, m_star2={m_star2}, correct_idx={correct_idx}')
                         cipher_text = deserialized_c_msg[correct_idx]
-                        # print(f'cipher_text={cipher_text}')
 
                         # send ack
                         self.c_socket.send(b'OK')
 
                         # intercept the mail and send it to the server
                         c_msg = self.c_socket.recv(1024)
-                        # print(f'rcvd mail data: {c_msg}')
+                        print(f'rcvd mail data: {c_msg}')
+                        print(' ')
 
-                        # replace eveything after '\x17\x03\x03\x00' with final_enc_data
-                        # and send it to the server
-                        new_mail = b'\x17\x03\x03\x00\xe0' + cipher_text
+                        # copy the first 5 bytes of the mail
+                        tls_header = c_msg[:5] # this is the tls header
+                        new_mail = tls_header + cipher_text
                         c_msg = new_mail
 
-                        print(f'new mail data: {c_msg}')
+                        print(f'new mail data: {new_mail}')
                         raise Exception('Protocol complete')
                     else:
                         raise Exception('No full stop found')
@@ -127,7 +130,11 @@ class socketListener(Thread):
         return val
         
     def rcv_from_server_fwd_to_client(self):
-        self.s_socket.settimeout(2.0)
+        if self.counter > 0:
+            self.s_socket.settimeout(3.0)
+        else:
+            self.s_socket.settimeout(1.0)
+
         val = False
         try:
             s_msg = self.s_socket.recv(1024)
@@ -169,17 +176,17 @@ class socketListener(Thread):
 
             ''' forward the connection to the real server '''
             # connect to the real server
-            self.s_socket = socket.create_connection((mailtrapIP, mailtrapPort))
-            counter = 0
+            self.s_socket = socket.create_connection((outlookIP, outlookPort))
+            self.counter = 0
             while True:
                 valOne = self.rcv_from_client_fwd_to_server()
                 print('\n--------------Break------------------\n')
                 valTwo = self.rcv_from_server_fwd_to_client()
 
                 if not valOne and not valTwo:
-                    counter += 1
+                    self.counter += 1
                 
-                if counter == 2:
+                if self.counter == 2:
                     break
 
             self.c_socket.close()
