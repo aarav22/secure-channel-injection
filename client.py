@@ -100,9 +100,11 @@ mailTrapUser = "e3658980310f3a"
 mailTrapPass = "cc5c386f9fcb0a"
 outlookUser = "blindprotocol@outlook.com"
 outlookPass = "tm2gKG8dFXgAGh5"
+proxyIP = "172.105.40.206"
+proxyPort = 6944
+localProxyIP = "127.0.0.127"
 
-
-client = MAILClient('127.0.0.127', 6944, outlookUser, outlookPass, True, settings=settings)
+client = MAILClient(proxyIP, proxyPort, outlookUser, outlookPass, True, settings=settings)
 
 
 
